@@ -1,0 +1,81 @@
+#!/bin/sh
+
+set -e
+
+CONFIG_FILE=$HOME/.git2obsrc
+
+[ -f "$CONFIG_FILE" ] && source $CONFIG_FILE
+
+usage ()
+{
+	echo "Usage: git2obs directory"
+	exit 1
+}
+
+# options
+[ -z "$1" ] && usage
+PACKAGE=$1
+VERSION_PREFIX=$2
+
+# default values
+[ -z "$G2O_SANDBOX_CHECKOUT" ] && G2O_SANDBOX_CHECKOUT=$HOME/moblin/UX
+[ -z "$G2O_COMMIT_AUTHOR" ] && {
+	G2O_COMMIT_AUTHOR="Damien Lespiau <damien.lespiau@intel.com>"
+}
+
+# input validation
+[ -d "$PACKAGE" ] || {
+	echo "$PACKAGE is not a directory."
+	exit 1
+}
+[ -d "$G2O_SANDBOX_CHECKOUT/$PACKAGE" ] || {
+	echo "$G2O_SANDBOX_CHECKOUT/$PACKAGE is not a directory."
+	exit 1
+}
+[ -f "$G2O_SANDBOX_CHECKOUT/$PACKAGE/$PACKAGE.ini" ] || {
+	echo "Could not find $G2O_SANDBOX_CHECKOUT/$PACKAGE.ini"
+	exit 1
+}
+[ -f "$G2O_SANDBOX_CHECKOUT/$PACKAGE/$PACKAGE.changes" ] || {
+	echo "Could not find $PACKAGE.changes"
+	exit 1
+}
+
+DATE=`date +%Y%m%d`
+VP=$VERSION_PREFIX
+
+# be sure nothing is in the way
+[ -d "/tmp/$PACKAGE-$VP$DATE" ] && {
+	echo "/tmp/$PACKAGE-$VP$DATE is in the way, please remove it."
+	exit 1
+}
+[ -d "/tmp/$PACKAGE-$VP$DATE.tar.bz2" ] && {
+	echo "/tmp/$PACKAGE-$VP$DATE.tar.bz2 is in the way, please remove it."
+	exit 1
+}
+
+# we just copy the whole directory, run git clean -xdf in it, remove .git
+# and create a tarbal
+cp -r $PACKAGE /tmp/$PACKAGE-$VP$DATE
+cd /tmp/$PACKAGE-$VP$DATE
+COMMIT_HASH=`git show-ref -s HEAD | head -n 1`
+git clean -xdf
+rm -rf git
+cd -
+tar -C /tmp -jcf $PACKAGE-$VP$DATE.tar.bz2 $PACKAGE-$VP$DATE
+mv $PACKAGE-$VP$DATE.tar.bz2 $G2O_SANDBOX_CHECKOUT/$PACKAGE
+[ -d /tmp/$PACKAGE-$VP$DATE ] && rm -rf /tmp/$PACKAGE-$VP$DATE
+
+# update spec-builder metadata
+COMMIT_DATE=`date +'%a %b %d %Y'`
+cd $G2O_SANDBOX_CHECKOUT/$PACKAGE
+# add update info in .changes file
+mv $PACKAGE.changes $PACKAGE.changes.orig
+echo "* $COMMIT_DATE $G2O_COMMIT_AUTHOR $VP$DATE" > $PACKAGE.changes
+echo "- Update to commit $COMMIT_HASH" >> $PACKAGE.changes
+echo "" >> $PACKAGE.changes
+cat $PACKAGE.changes.orig >> $PACKAGE.changes
+rm $PACKAGE.changes.orig
+# update the version in the ini file
+sed -i -e "s,Version.*,Version = $VP$DATE," $PACKAGE.ini
+
