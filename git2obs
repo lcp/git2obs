@@ -1,16 +1,82 @@
 #!/bin/sh
 
-set -e
-
 CONFIG_FILE=$HOME/.git2obsrc
-
-[ -f "$CONFIG_FILE" ] && source $CONFIG_FILE
+LOG_FILE=/tmp/git2obs.$$
 
 usage ()
 {
 	echo "Usage: git2obs directory version_prefix"
 	exit 1
 }
+
+###
+# we want pretty messages!
+
+# COLS & COL
+if [ "$COLS" ] && [ "$COLS" -gt 6 ]; then
+	COL=`expr $COLS - 7`
+else
+	COLS=80
+	COL=73
+fi
+
+
+if [ "$COLS" ] && [ "$COLS" -gt 6 ]; then
+	COL=`expr $COLS - 7`
+else
+	COLS=80
+	COL=73
+fi
+
+log_message ()
+{
+	echo -n " * $1"
+}
+
+log_message_end ()
+{
+	if [ -z "$1" ]; then
+		return 1
+	fi
+
+	printf "\r"
+	tput hpa $COL
+	if [ "$1" -eq 0 ]; then
+		printf '[ '
+		tput setaf 2 # green
+		printf OK
+		tput op # normal
+		echo ' ]'
+	else
+		printf '['
+		tput setaf 1 # red
+		printf fail
+		tput op # normal
+		echo ']'
+	fi
+
+	return $1
+}
+
+###
+# okko message command
+okko ()
+{
+	local message=$1
+	local command=$2
+	local result
+
+	log_message "$message"
+	echo "\$ $command" >> $LOG_FILE
+	$command 2>&1 >> $LOG_FILE
+        result=$?
+	log_message_end $result
+	if [ $result != 0 ]; then
+		echo "Ooops... an error occured, see $LOG_FILE"
+	fi
+}
+
+[ -f "$CONFIG_FILE" ] && source $CONFIG_FILE
 
 # options
 [ -z "$1" -o -z "$2" ] && usage
