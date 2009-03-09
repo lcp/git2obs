@@ -8,12 +8,12 @@ CONFIG_FILE=$HOME/.git2obsrc
 
 usage ()
 {
-	echo "Usage: git2obs directory"
+	echo "Usage: git2obs directory version_prefix"
 	exit 1
 }
 
 # options
-[ -z "$1" ] && usage
+[ -z "$1" -o -z "$2" ] && usage
 PACKAGE=$1
 VERSION_PREFIX=$2
 
