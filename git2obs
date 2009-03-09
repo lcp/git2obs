@@ -78,4 +78,6 @@ cat $PACKAGE.changes.orig >> $PACKAGE.changes
 rm $PACKAGE.changes.orig
 # update the version in the ini file
 sed -i -e "s,Version.*,Version = $VP$DATE," $PACKAGE.ini
+# run spec-builder to update the spec file
+spec-builder $PACKAGE.ini > $PACKAGE.spec
 
