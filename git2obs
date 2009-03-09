@@ -60,7 +60,7 @@ cp -r $PACKAGE /tmp/$PACKAGE-$VP$DATE
 cd /tmp/$PACKAGE-$VP$DATE
 COMMIT_HASH=`git show-ref -s HEAD | head -n 1`
 git clean -xdf
-rm -rf git
+rm -rf .git
 cd -
 tar -C /tmp -jcf $PACKAGE-$VP$DATE.tar.bz2 $PACKAGE-$VP$DATE
 mv $PACKAGE-$VP$DATE.tar.bz2 $G2O_SANDBOX_CHECKOUT/$PACKAGE
