@@ -11,6 +11,7 @@ usage ()
 
 ###
 # we want pretty messages!
+# FIXME: use $COLUMMS here ?
 
 # COLS & COL
 if [ "$COLS" ] && [ "$COLS" -gt 6 ]; then
@@ -58,6 +59,14 @@ log_message_end ()
 	return $1
 }
 
+run ()
+{
+	local command=$1
+
+	echo "\$ $command" >> $LOG_FILE
+	$command >> $LOG_FILE 2>&1
+}
+
 ###
 # okko message command
 okko ()
@@ -67,12 +76,12 @@ okko ()
 	local result
 
 	log_message "$message"
-	echo "\$ $command" >> $LOG_FILE
-	$command 2>&1 >> $LOG_FILE
+	run "$command"
         result=$?
 	log_message_end $result
 	if [ $result != 0 ]; then
 		echo "Ooops... an error occured, see $LOG_FILE"
+		exit 1
 	fi
 }
 
@@ -80,9 +89,12 @@ okko ()
 
 # options
 [ -z "$1" -o -z "$2" ] && usage
-PKG_NAME=`basename "$1`
-PKG_PATH=`echo "$1" | sed -e 's,/$,,`
-VERSION_PREFIX=$2
+PKG_NAME=`basename "$1"`
+PKG_PATH=`echo "$1" | sed -e 's,/$,,'`
+VP=$2
+DATE=`date +%Y%m%d`
+COMMIT_DATE=`date +'%a %b %d %Y'`
+PKG_TARBALL=$PKG_NAME-$VP$DATE.tar.bz2
 
 # default values
 [ -z "$G2O_SANDBOX_CHECKOUT" ] && G2O_SANDBOX_CHECKOUT=$HOME/moblin/UX
@@ -90,61 +102,98 @@ VERSION_PREFIX=$2
 	G2O_COMMIT_AUTHOR="Damien Lespiau <damien.lespiau@intel.com>"
 }
 
-# input validation
-[ -d "$PKG_PATH" ] || {
-	echo "$PKG_PATH is not a directory."
-	exit 1
-}
-[ -d "$G2O_SANDBOX_CHECKOUT/$PKG_NAME" ] || {
-	echo "$G2O_SANDBOX_CHECKOUT/$PKG_NAME is not a directory."
-	exit 1
-}
-[ -f "$G2O_SANDBOX_CHECKOUT/$PKG_NAME/$PKG_NAME.ini" ] || {
-	echo "Could not find $G2O_SANDBOX_CHECKOUT/$PKG_NAME.ini"
-	exit 1
-}
-[ -f "$G2O_SANDBOX_CHECKOUT/$PKG_NAME/$PKG_NAME.changes" ] || {
-	echo "Could not find $PKG_NAME.changes"
-	exit 1
+check_base ()
+{
+	local op=$1
+	local file=$2
+	local message=$3
+
+	[ $op "$file" ] || {
+		echo "$message"
+		exit 1
+	}
 }
 
-DATE=`date +%Y%m%d`
-VP=$VERSION_PREFIX
+check_file ()
+{
+	check_base '-f' "$1" "could not find $1."
+}
+
+check_directory ()
+{
+	check_base '-d' "$1" "$1 is not a directory."
+}
+
+check_exist ()
+{
+	check_base '! -e' "$1" "$1 in the way, please remove it."
+}
+
+# input validation
+check_directory "$PKG_PATH"
 
 # be sure nothing is in the way
-[ -d "/tmp/$PKG_NAME-$VP$DATE" ] && {
-	echo "/tmp/$PKG_NAME-$VP$DATE is in the way, please remove it."
-	exit 1
-}
-[ -d "/tmp/$PKG_NAME-$VP$DATE.tar.bz2" ] && {
-	echo "/tmp/$PKG_NAME-$VP$DATE.tar.bz2 is in the way, please remove it."
-	exit 1
-}
+check_exist "/tmp/$PKG_NAME-$VP$DATE"
+check_exist "/tmp/UX/$PKG_NAME"
+check_exist "/tmp/$PKG_NAME-$VP$DATE.tar.bz2"
 
-# we just copy the whole directory, run git clean -xdf in it, remove .git
-# and create a tarbal
-cp -r $PKG_PATH /tmp/$PKG_NAME-$VP$DATE
-cd /tmp/$PKG_NAME-$VP$DATE
-COMMIT_HASH=`git show-ref -s HEAD | head -n 1`
-git clean -xdf
-rm -rf .git
-cd -
-tar -C /tmp -jcf $PKG_NAME-$VP$DATE.tar.bz2 $PKG_NAME-$VP$DATE
-mv $PKG_NAME-$VP$DATE.tar.bz2 $G2O_SANDBOX_CHECKOUT/$PKG_NAME
-[ -d /tmp/$PKG_NAME-$VP$DATE ] && rm -rf /tmp/$PKG_NAME-$VP$DATE
+# checkout a fresh repo from OBS
+run "pushd /tmp"
+okko "Checking-out OBS package $PKG_NAME" "osc co UX $PKG_NAME"
+run popd
 
-# update spec-builder metadata
-COMMIT_DATE=`date +'%a %b %d %Y'`
-cd $G2O_SANDBOX_CHECKOUT/$PKG_NAME
+run "pushd /tmp/UX/$PKG_NAME"
+PKG_OLD_TARBALL=`ls *.tar.bz2`
+run popd
+
+# make a tarball
+create_tarball ()
+{
+	COMMIT_HASH=`git show-ref -s HEAD | head -n 1`
+	git archive --prefix=$PKG_NAME-$VP$DATE/ --format=tar $COMMIT_HASH \
+		| bzip2 -f > $PKG_TARBALL
+	mv $PKG_TARBALL /tmp/UX/$PKG_NAME
+}
+run "pushd $PKG_PATH"
+okko "Creating new package $PKG_TARBALL" create_tarball
+
+# update OBS metadata
+update_metadata ()
+{
+	mv $PKG_NAME.changes $PKG_NAME.changes.orig
+	echo "* $COMMIT_DATE $G2O_COMMIT_AUTHOR $VP$DATE" > $PKG_NAME.changes
+	echo "- Update to commit $COMMIT_HASH" >> $PKG_NAME.changes
+	echo "" >> $PKG_NAME.changes
+	cat $PKG_NAME.changes.orig >> $PKG_NAME.changes
+	rm $PKG_NAME.changes.orig
+	# update the version in the ini file
+	sed -i -e "s,Version.*,Version = $VP$DATE," $PKG_NAME.ini
+}
+run "pushd /tmp/UX/$PKG_NAME"
+okko "Updating .ini file for $PKG_NAME-$VP$DATE" update_metadata
+
 # add update info in .changes file
-mv $PKG_NAME.changes $PKG_NAME.changes.orig
-echo "* $COMMIT_DATE $G2O_COMMIT_AUTHOR $VP$DATE" > $PKG_NAME.changes
-echo "- Update to commit $COMMIT_HASH" >> $PKG_NAME.changes
-echo "" >> $PKG_NAME.changes
-cat $PKG_NAME.changes.orig >> $PKG_NAME.changes
-rm $PKG_NAME.changes.orig
-# update the version in the ini file
-sed -i -e "s,Version.*,Version = $VP$DATE," $PKG_NAME.ini
 # run spec-builder to update the spec file
-spec-builder $PKG_NAME.ini > $PKG_NAME.spec
+update_spec ()
+{
+	spec-builder $PKG_NAME.ini > $PKG_NAME.spec
+}
+okko "Updating .spec file for $PKG_NAME-$VP$DATE" update_spec
 
+prepare_commit ()
+{
+	rm $PKG_OLD_TARBALL
+	osc addremove
+}
+okko "Preparing for commit" prepare_commit
+
+commit ()
+{
+	osc commit -m "Update to HEAD"
+}
+okko "Sending new version" commit
+run popd
+
+# everything's all right, we can remove the log file and the OBS checkout
+run "rm $LOG_FILE"
+run "rm -rf /tmp/UX/$PKG_NAME"
