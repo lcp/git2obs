@@ -130,6 +130,7 @@ check_exist ()
 
 # input validation
 check_directory "$PKG_PATH"
+check_base '-d' "$PKG_PATH/.git" "$PKG_PATH is not a git repository."
 
 # be sure nothing is in the way
 check_exist "/tmp/$PKG_NAME-$VP$DATE"
