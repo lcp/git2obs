@@ -80,7 +80,8 @@ okko ()
 
 # options
 [ -z "$1" -o -z "$2" ] && usage
-PACKAGE=$1
+PACKAGE=`basename "$1`
+PKG_PATH=`echo "$1" | sed -e 's,/$,,`
 VERSION_PREFIX=$2
 
 # default values
@@ -90,8 +91,8 @@ VERSION_PREFIX=$2
 }
 
 # input validation
-[ -d "$PACKAGE" ] || {
-	echo "$PACKAGE is not a directory."
+[ -d "$PKG_PATH" ] || {
+	echo "$PKG_PATH is not a directory."
 	exit 1
 }
 [ -d "$G2O_SANDBOX_CHECKOUT/$PACKAGE" ] || {
@@ -122,7 +123,7 @@ VP=$VERSION_PREFIX
 
 # we just copy the whole directory, run git clean -xdf in it, remove .git
 # and create a tarbal
-cp -r $PACKAGE /tmp/$PACKAGE-$VP$DATE
+cp -r $PKG_PATH /tmp/$PACKAGE-$VP$DATE
 cd /tmp/$PACKAGE-$VP$DATE
 COMMIT_HASH=`git show-ref -s HEAD | head -n 1`
 git clean -xdf
