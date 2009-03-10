@@ -97,7 +97,6 @@ COMMIT_DATE=`date +'%a %b %d %Y'`
 PKG_TARBALL=$PKG_NAME-$VP$DATE.tar.bz2
 
 # default values
-[ -z "$G2O_SANDBOX_CHECKOUT" ] && G2O_SANDBOX_CHECKOUT=$HOME/moblin/UX
 [ -z "$G2O_COMMIT_AUTHOR" ] && {
 	G2O_COMMIT_AUTHOR="Damien Lespiau <damien.lespiau@intel.com>"
 }
