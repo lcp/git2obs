@@ -80,7 +80,7 @@ okko ()
 
 # options
 [ -z "$1" -o -z "$2" ] && usage
-PACKAGE=`basename "$1`
+PKG_NAME=`basename "$1`
 PKG_PATH=`echo "$1" | sed -e 's,/$,,`
 VERSION_PREFIX=$2
 
@@ -95,16 +95,16 @@ VERSION_PREFIX=$2
 	echo "$PKG_PATH is not a directory."
 	exit 1
 }
-[ -d "$G2O_SANDBOX_CHECKOUT/$PACKAGE" ] || {
-	echo "$G2O_SANDBOX_CHECKOUT/$PACKAGE is not a directory."
+[ -d "$G2O_SANDBOX_CHECKOUT/$PKG_NAME" ] || {
+	echo "$G2O_SANDBOX_CHECKOUT/$PKG_NAME is not a directory."
 	exit 1
 }
-[ -f "$G2O_SANDBOX_CHECKOUT/$PACKAGE/$PACKAGE.ini" ] || {
-	echo "Could not find $G2O_SANDBOX_CHECKOUT/$PACKAGE.ini"
+[ -f "$G2O_SANDBOX_CHECKOUT/$PKG_NAME/$PKG_NAME.ini" ] || {
+	echo "Could not find $G2O_SANDBOX_CHECKOUT/$PKG_NAME.ini"
 	exit 1
 }
-[ -f "$G2O_SANDBOX_CHECKOUT/$PACKAGE/$PACKAGE.changes" ] || {
-	echo "Could not find $PACKAGE.changes"
+[ -f "$G2O_SANDBOX_CHECKOUT/$PKG_NAME/$PKG_NAME.changes" ] || {
+	echo "Could not find $PKG_NAME.changes"
 	exit 1
 }
 
@@ -112,39 +112,39 @@ DATE=`date +%Y%m%d`
 VP=$VERSION_PREFIX
 
 # be sure nothing is in the way
-[ -d "/tmp/$PACKAGE-$VP$DATE" ] && {
-	echo "/tmp/$PACKAGE-$VP$DATE is in the way, please remove it."
+[ -d "/tmp/$PKG_NAME-$VP$DATE" ] && {
+	echo "/tmp/$PKG_NAME-$VP$DATE is in the way, please remove it."
 	exit 1
 }
-[ -d "/tmp/$PACKAGE-$VP$DATE.tar.bz2" ] && {
-	echo "/tmp/$PACKAGE-$VP$DATE.tar.bz2 is in the way, please remove it."
+[ -d "/tmp/$PKG_NAME-$VP$DATE.tar.bz2" ] && {
+	echo "/tmp/$PKG_NAME-$VP$DATE.tar.bz2 is in the way, please remove it."
 	exit 1
 }
 
 # we just copy the whole directory, run git clean -xdf in it, remove .git
 # and create a tarbal
-cp -r $PKG_PATH /tmp/$PACKAGE-$VP$DATE
-cd /tmp/$PACKAGE-$VP$DATE
+cp -r $PKG_PATH /tmp/$PKG_NAME-$VP$DATE
+cd /tmp/$PKG_NAME-$VP$DATE
 COMMIT_HASH=`git show-ref -s HEAD | head -n 1`
 git clean -xdf
 rm -rf .git
 cd -
-tar -C /tmp -jcf $PACKAGE-$VP$DATE.tar.bz2 $PACKAGE-$VP$DATE
-mv $PACKAGE-$VP$DATE.tar.bz2 $G2O_SANDBOX_CHECKOUT/$PACKAGE
-[ -d /tmp/$PACKAGE-$VP$DATE ] && rm -rf /tmp/$PACKAGE-$VP$DATE
+tar -C /tmp -jcf $PKG_NAME-$VP$DATE.tar.bz2 $PKG_NAME-$VP$DATE
+mv $PKG_NAME-$VP$DATE.tar.bz2 $G2O_SANDBOX_CHECKOUT/$PKG_NAME
+[ -d /tmp/$PKG_NAME-$VP$DATE ] && rm -rf /tmp/$PKG_NAME-$VP$DATE
 
 # update spec-builder metadata
 COMMIT_DATE=`date +'%a %b %d %Y'`
-cd $G2O_SANDBOX_CHECKOUT/$PACKAGE
+cd $G2O_SANDBOX_CHECKOUT/$PKG_NAME
 # add update info in .changes file
-mv $PACKAGE.changes $PACKAGE.changes.orig
-echo "* $COMMIT_DATE $G2O_COMMIT_AUTHOR $VP$DATE" > $PACKAGE.changes
-echo "- Update to commit $COMMIT_HASH" >> $PACKAGE.changes
-echo "" >> $PACKAGE.changes
-cat $PACKAGE.changes.orig >> $PACKAGE.changes
-rm $PACKAGE.changes.orig
+mv $PKG_NAME.changes $PKG_NAME.changes.orig
+echo "* $COMMIT_DATE $G2O_COMMIT_AUTHOR $VP$DATE" > $PKG_NAME.changes
+echo "- Update to commit $COMMIT_HASH" >> $PKG_NAME.changes
+echo "" >> $PKG_NAME.changes
+cat $PKG_NAME.changes.orig >> $PKG_NAME.changes
+rm $PKG_NAME.changes.orig
 # update the version in the ini file
-sed -i -e "s,Version.*,Version = $VP$DATE," $PACKAGE.ini
+sed -i -e "s,Version.*,Version = $VP$DATE," $PKG_NAME.ini
 # run spec-builder to update the spec file
-spec-builder $PACKAGE.ini > $PACKAGE.spec
+spec-builder $PKG_NAME.ini > $PKG_NAME.spec
 
