@@ -187,6 +187,10 @@ prepare_commit ()
 }
 okko "Preparing for commit" prepare_commit
 
+# exit now to let the use update the .changes file before submitting
+# the package.
+exit 0
+
 commit ()
 {
 	osc commit -m "Update to HEAD"
