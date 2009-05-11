@@ -3,6 +3,23 @@
 CONFIG_FILE=$HOME/.git2obsrc
 LOG_FILE=/tmp/git2obs.$$
 
+[ -z "$G2O_USER" ] && G2O_USER=`git config user.user`
+[ -z "$G2O_EMAIL" ] && G2O_EMAIL=`git config user.email`
+if [ -z "$G2O_COMMIT_AUTHOR" ]; then
+    G2O_COMMIT_AUTHOR="$G2O_USER <$G2O_EMAIL>"
+fi
+
+if   [[ "$G2O_EMAIL" =~ intel.com ]]; then
+	[ -z "$OSC_OPTS" ] && OSC_OPTS=""
+	[ -z "$OSC_REPO" ] && OSC_REPO="UX"
+elif [[ "$G2O_EMAIL" =~ novell.com ]]; then
+	[ -z "$OSC_OPTS" ] && OSC_OPTS="-A https://api.suse.de"
+	[ -z "$OSC_REPO" ] && OSC_REPO="Devel:Moblin:Test:Snapshot"
+else
+	[ -z "$OSC_OPTS" ] && OSC_OPTS=""
+	[ -z "$OSC_REPO" ] && OSC_REPO=""
+fi
+
 usage ()
 {
 	echo "Usage: git2obs directory version_prefix"
@@ -88,18 +105,23 @@ okko ()
 [ -f "$CONFIG_FILE" ] && source $CONFIG_FILE
 
 # options
-[ -z "$1" -o -z "$2" ] && usage
+[ -z "$1" ] && usage
 PKG_NAME=`basename "$1"`
 PKG_PATH=`echo "$1" | sed -e 's,/$,,'`
-VP=$2
+if [ -z "$2" ]; then
+	VP=`grep 'AC_INIT' $1/configure.ac | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//'`
+	if [ -z "$VP" ]; then
+	    echo "Can't detect version from configure.ac"
+	    usage
+	fi
+else
+	VP=$2
+fi
 DATE=`date +%Y%m%d`
 COMMIT_DATE=`date +'%a %b %d %Y'`
 PKG_TARBALL=$PKG_NAME-$VP$DATE.tar.bz2
 
-# default values
-[ -z "$G2O_COMMIT_AUTHOR" ] && {
-	G2O_COMMIT_AUTHOR="Damien Lespiau <damien.lespiau@intel.com>"
-}
+# [ -d "/tmp/$OSC_REPO" ] || mkdir /tmp/$OSC_REPO;
 
 check_base ()
 {
@@ -134,15 +156,15 @@ check_base '-d' "$PKG_PATH/.git" "$PKG_PATH is not a git repository."
 
 # be sure nothing is in the way
 check_exist "/tmp/$PKG_NAME-$VP$DATE"
-check_exist "/tmp/UX/$PKG_NAME"
+check_exist "/tmp/$OSC_REPO/$PKG_NAME"
 check_exist "/tmp/$PKG_NAME-$VP$DATE.tar.bz2"
 
 # checkout a fresh repo from OBS
 run "pushd /tmp"
-okko "Checking-out OBS package $PKG_NAME" "osc co UX $PKG_NAME"
+okko "Checking-out OBS package $PKG_NAME" "osc $OSC_OPTS co $OSC_REPO $PKG_NAME"
 run popd
 
-run "pushd /tmp/UX/$PKG_NAME"
+run "pushd /tmp/$OSC_REPO/$PKG_NAME"
 PKG_OLD_TARBALL=`ls *.tar.bz2`
 run popd
 
@@ -152,7 +174,7 @@ create_tarball ()
 	COMMIT_HASH=`git show-ref -s HEAD | head -n 1`
 	git archive --prefix=$PKG_NAME-$VP$DATE/ --format=tar $COMMIT_HASH \
 		| bzip2 -f > $PKG_TARBALL
-	mv $PKG_TARBALL /tmp/UX/$PKG_NAME
+	mv $PKG_TARBALL /tmp/$OSC_REPO/$PKG_NAME
 }
 run "pushd $PKG_PATH"
 okko "Creating new package $PKG_TARBALL" create_tarball
@@ -160,16 +182,23 @@ okko "Creating new package $PKG_TARBALL" create_tarball
 # update OBS metadata
 update_metadata ()
 {
-	mv $PKG_NAME.changes $PKG_NAME.changes.orig
+	if [ -f "$PKG_NAME.changes" ]; then
+	    mv $PKG_NAME.changes $PKG_NAME.changes.orig
+	fi
+	touch $PKG_NAME.changes.orig
 	echo "* $COMMIT_DATE $G2O_COMMIT_AUTHOR $VP$DATE" > $PKG_NAME.changes
 	echo "- Update to commit $COMMIT_HASH" >> $PKG_NAME.changes
 	echo "" >> $PKG_NAME.changes
 	cat $PKG_NAME.changes.orig >> $PKG_NAME.changes
 	rm $PKG_NAME.changes.orig
 	# update the version in the ini file
-	sed -i -e "s,Version.*,Version = $VP$DATE," $PKG_NAME.ini
+	if [ -f "$PKG_NAME.ini" ]; then
+	    sed -i -e "s,Version.*,Version = $VP$DATE," $PKG_NAME.ini
+	else
+	    sed -i -e "s,Version.*,Version: $VP$DATE," $PKG_NAME.spec
+	fi
 }
-run "pushd /tmp/UX/$PKG_NAME"
+run "pushd /tmp/$OSC_REPO/$PKG_NAME"
 okko "Updating .ini file for $PKG_NAME-$VP$DATE" update_metadata
 
 # add update info in .changes file
@@ -178,12 +207,14 @@ update_spec ()
 {
 	spec-builder $PKG_NAME.ini > $PKG_NAME.spec
 }
-okko "Updating .spec file for $PKG_NAME-$VP$DATE" update_spec
+if [ -f "$PKG_NAME.ini" ]; then
+    okko "Updating .spec file for $PKG_NAME-$VP$DATE" update_spec
+fi
 
 prepare_commit ()
 {
 	rm $PKG_OLD_TARBALL
-	osc addremove
+	osc $OSC_OPTS addremove
 }
 okko "Preparing for commit" prepare_commit
 
@@ -193,11 +224,11 @@ exit 0
 
 commit ()
 {
-	osc commit -m "Update to HEAD"
+	osc $OSC_OPTS commit -m "Update to HEAD"
 }
 okko "Sending new version" commit
 run popd
 
 # everything's all right, we can remove the log file and the OBS checkout
 run "rm $LOG_FILE"
-run "rm -rf /tmp/UX/$PKG_NAME"
+run "rm -rf /tmp/$OSC_REPO/$PKG_NAME"
