@@ -109,11 +109,17 @@ okko ()
 PKG_NAME=`basename "$1"`
 PKG_PATH=`echo "$1" | sed -e 's,/$,,'`
 if [ -z "$2" ]; then
-	VP=`grep 'AC_INIT' $1/configure.ac | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//'`
-	if [ -z "$VP" ]; then # try harder ...
-	    MAJ=`grep 'm4_define(.*_major' $1/configure.ac | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//' | head -n1`
-	    MIN=`grep 'm4_define(.*_minor' $1/configure.ac | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//' | head -n1`
-	    MIC=`grep 'm4_define(.*_micro' $1/configure.ac | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//' | head -n1`
+	config=
+	[ -f "$1/configure.ac" ] && config=$1/configure.ac
+	[ -f "$1/configure.in" ] && config=$1/configure.in
+	VP=
+	if [ -f $config ]; then
+	    VP=`grep 'AC_INIT' $config | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//'`
+	fi
+	if [ -z "$VP" -a -f $config ]; then # try harder ...
+	    MAJ=`grep 'm4_define(.*_major' $config | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//' | head -n1`
+	    MIN=`grep 'm4_define(.*_minor' $config | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//' | head -n1`
+	    MIC=`grep 'm4_define(.*_micro' $config | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//' | head -n1`
 	    if [ -z "$MAJ" -o -z "$MIN" -o -z "$MIC" ]; then
 		echo "Failed to detect maj/min/micro"
 	    else
@@ -224,7 +230,7 @@ fi
 
 prepare_commit ()
 {
-	rm $PKG_OLD_TARBALL
+	[ "$PKG_OLD_TARBALL" != "$PKG_TARBALL" ] && rm $PKG_OLD_TARBALL
 	osc $OSC_OPTS addremove
 }
 okko "Preparing for commit" prepare_commit
