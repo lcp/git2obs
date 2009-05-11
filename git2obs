@@ -110,6 +110,17 @@ PKG_NAME=`basename "$1"`
 PKG_PATH=`echo "$1" | sed -e 's,/$,,'`
 if [ -z "$2" ]; then
 	VP=`grep 'AC_INIT' $1/configure.ac | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//'`
+	if [ -z "$VP" ]; then # try harder ...
+	    MAJ=`grep 'm4_define(.*_major' $1/configure.ac | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//' | head -n1`
+	    MIN=`grep 'm4_define(.*_minor' $1/configure.ac | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//' | head -n1`
+	    MIC=`grep 'm4_define(.*_micro' $1/configure.ac | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//' | head -n1`
+	    if [ -z "$MAJ" -o -z "$MIN" -o -z "$MIC" ]; then
+		echo "Failed to detect maj/min/micro"
+	    else
+		VP="$MAJ.$MIN.$MIC"
+		echo "Detected version: $VP"
+	    fi
+	fi
 	if [ -z "$VP" ]; then
 	    echo "Can't detect version from configure.ac"
 	    usage
