@@ -188,7 +188,7 @@ run popd
 # make a tarball
 create_tarball ()
 {
-	COMMIT_HASH=`git show-ref -s HEAD | head -n 1`
+	COMMIT_HASH=`git show-ref -s -h | head -n 1`
 	git archive --prefix=$PKG_NAME-$VP$DATE/ --format=tar $COMMIT_HASH \
 		| bzip2 -f > $PKG_TARBALL
 	mv $PKG_TARBALL /tmp/$OSC_REPO/$PKG_NAME
