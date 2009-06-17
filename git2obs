@@ -13,8 +13,9 @@ if   [[ "$G2O_EMAIL" =~ intel.com ]]; then
 	[ -z "$OSC_OPTS" ] && OSC_OPTS=""
 	[ -z "$OSC_REPO" ] && OSC_REPO="UX"
 elif [[ "$G2O_EMAIL" =~ novell.com ]]; then
-	[ -z "$OSC_OPTS" ] && OSC_OPTS="-A https://api.suse.de"
-	[ -z "$OSC_REPO" ] && OSC_REPO="Devel:Moblin:Test:Snapshot"
+	[ -z "$OSC_OPTS" ] && OSC_OPTS=""
+	[ -z "$OSC_REPO" ] && OSC_REPO="Moblin:UI:Snapshot"
+	[ -z "$AUTO_SUBMIT"] && AUTO_SUBMIT=true
 else
 	[ -z "$OSC_OPTS" ] && OSC_OPTS=""
 	[ -z "$OSC_REPO" ] && OSC_REPO=""
@@ -182,7 +183,7 @@ okko "Checking-out OBS package $PKG_NAME" "osc $OSC_OPTS co $OSC_REPO $PKG_NAME"
 run popd
 
 run "pushd /tmp/$OSC_REPO/$PKG_NAME"
-PKG_OLD_TARBALL=`ls *.tar.bz2`
+PKG_OLD_TARBALL=`ls $PKG_NAME*.tar.bz2`
 run popd
 
 # make a tarball
@@ -237,7 +238,7 @@ okko "Preparing for commit" prepare_commit
 
 # exit now to let the use update the .changes file before submitting
 # the package.
-exit 0
+[ -z "$AUTO_SUBMIT" ] && exit 0
 
 commit ()
 {
