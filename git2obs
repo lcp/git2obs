@@ -128,6 +128,9 @@ if [ -z "$2" ]; then
 		echo "Detected version: $VP"
 	    fi
 	fi
+	if [ -z "$VP" -a -f $config ]; then # try harder ...
+	    VP=`grep 'AM_INIT_AUTOMAKE' $config | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//'`
+	fi
 	if [ -z "$VP" ]; then
 	    echo "Can't detect version from configure.ac"
 	    usage
