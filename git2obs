@@ -187,12 +187,19 @@ run popd
 
 run "pushd /tmp/$OSC_REPO/$PKG_NAME"
 PKG_OLD_TARBALL=`ls $PKG_NAME*.tar.bz2`
+OLD_HASH=`grep 'Update to commit' $PKG_NAME.changes | head -n 1 | sed 's/.*to commit //'`
 run popd
 
 # make a tarball
 create_tarball ()
 {
 	COMMIT_HASH=`git show-ref -s -h | head -n 1`
+	if [ "$OLD_HASH" == "$COMMIT_HASH" ]; then
+		# The old tarball is the same as the new one. Let it alone.
+		run "rm $LOG_FILE"
+		run "rm -rf /tmp/$OSC_REPO/$PKG_NAME"
+		exit
+	fi
 	git archive --prefix=$PKG_NAME-$VP$DATE/ --format=tar $COMMIT_HASH \
 		| bzip2 -f > $PKG_TARBALL
 	mv $PKG_TARBALL /tmp/$OSC_REPO/$PKG_NAME
