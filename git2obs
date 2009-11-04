@@ -223,6 +223,7 @@ update_metadata ()
 	    sed -i -e "s,Version.*,Version = $VNUMBER," $PKG_NAME.ini
 	else
 	    sed -i -e "s,\(Version: *\)[^)]*,\1$VNUMBER," $PKG_NAME.spec
+	    sed -i -e "s,\($PKG_NAME (Version*\)[^)]*,\1 $VNUMBER," $PKG_NAME.spec
 	fi
 }
 run "pushd /tmp/$OSC_REPO/$PKG_NAME"
