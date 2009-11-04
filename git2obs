@@ -138,12 +138,17 @@ if [ -z "$2" ]; then
 	    echo "Can't detect version from configure.ac"
 	    usage
 	fi
+
 else
 	VP=$2
 fi
-DATE=`date +%Y%m%d`
-COMMIT_DATE=`date +'%a %b %d %Y'`
-PKG_TARBALL=$PKG_NAME-$VP$DATE.tar.bz2
+run "pushd $1"
+DATE=`git show --pretty=format:%ci | head -n 1 | sed -e 's/-//g' | awk '{print $1;}'`
+run popd
+
+VNUMBER=${VP}_${DATE}
+PKG_TARBALL=$PKG_NAME-$VNUMBER.tar.bz2
+PKG_FULLNAME=$PKG_NAME-$VNUMBER
 
 # [ -d "/tmp/$OSC_REPO" ] || mkdir /tmp/$OSC_REPO;
 
@@ -179,9 +184,9 @@ check_directory "$PKG_PATH"
 check_base '-d' "$PKG_PATH/.git" "$PKG_PATH is not a git repository."
 
 # be sure nothing is in the way
-check_exist "/tmp/$PKG_NAME-$VP$DATE"
+check_exist "/tmp/$PKG_FULLNAME"
 check_exist "/tmp/$OSC_REPO/$PKG_NAME"
-check_exist "/tmp/$PKG_NAME-$VP$DATE.tar.bz2"
+check_exist "/tmp/$PKG_TARBALL"
 
 # checkout a fresh repo from OBS
 run "pushd /tmp"
@@ -209,7 +214,7 @@ compare_hash()
 # make a tarball
 create_tarball ()
 {
-	git archive --prefix=$PKG_NAME-$VP$DATE/ --format=tar $COMMIT_HASH \
+	git archive --prefix=$PKG_FULLNAME/ --format=tar $COMMIT_HASH \
 		| bzip2 -f > $PKG_TARBALL
 	mv $PKG_TARBALL /tmp/$OSC_REPO/$PKG_NAME
 }
@@ -223,13 +228,13 @@ update_metadata ()
 	osc vc -m "Update to commit $COMMIT_HASH"
 	# update the version in the ini file
 	if [ -f "$PKG_NAME.ini" ]; then
-	    sed -i -e "s,Version.*,Version = $VP$DATE," $PKG_NAME.ini
+	    sed -i -e "s,Version.*,Version = $VNUMBER," $PKG_NAME.ini
 	else
-	    sed -i -e "s,\(Version: *\)[^)]*,\1$VP$DATE," $PKG_NAME.spec
+	    sed -i -e "s,\(Version: *\)[^)]*,\1$VNUMBER," $PKG_NAME.spec
 	fi
 }
 run "pushd /tmp/$OSC_REPO/$PKG_NAME"
-okko "Updating .ini file for $PKG_NAME-$VP$DATE" update_metadata
+okko "Updating .ini file for $PKG_FULLNAME" update_metadata
 
 # add update info in .changes file
 # run spec-builder to update the spec file
@@ -238,7 +243,7 @@ update_spec ()
 	spec-builder $PKG_NAME.ini > $PKG_NAME.spec
 }
 if [ -f "$PKG_NAME.ini" ]; then
-    okko "Updating .spec file for $PKG_NAME-$VP$DATE" update_spec
+    okko "Updating .spec file for $PKG_FULLNAME" update_spec
 fi
 
 prepare_commit ()
