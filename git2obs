@@ -220,15 +220,7 @@ okko "Creating new package $PKG_TARBALL" create_tarball
 # update OBS metadata
 update_metadata ()
 {
-	if [ -f "$PKG_NAME.changes" ]; then
-	    mv $PKG_NAME.changes $PKG_NAME.changes.orig
-	fi
-	touch $PKG_NAME.changes.orig
-	echo "* $COMMIT_DATE $G2O_COMMIT_AUTHOR $VP$DATE" > $PKG_NAME.changes
-	echo "- Update to commit $COMMIT_HASH" >> $PKG_NAME.changes
-	echo "" >> $PKG_NAME.changes
-	cat $PKG_NAME.changes.orig >> $PKG_NAME.changes
-	rm $PKG_NAME.changes.orig
+	osc vc -m "Update to commit $COMMIT_HASH"
 	# update the version in the ini file
 	if [ -f "$PKG_NAME.ini" ]; then
 	    sed -i -e "s,Version.*,Version = $VP$DATE," $PKG_NAME.ini
@@ -262,7 +254,7 @@ okko "Preparing for commit" prepare_commit
 
 commit ()
 {
-	osc $OSC_OPTS commit -m "Update to HEAD"
+	osc $OSC_OPTS commit -m "Update to $COMMIT_HASH"
 }
 okko "Sending new version" commit
 run popd
