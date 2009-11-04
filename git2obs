@@ -131,6 +131,9 @@ if [ -z "$2" ]; then
 	if [ -z "$VP" -a -f $config ]; then # try harder ...
 	    VP=`grep 'AM_INIT_AUTOMAKE' $config | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//'`
 	fi
+	if [ -z "$VP" -a -f $config ]; then # try harder ...
+	    VP=`grep 'm4_define(\[mwb_version\]' $config | sed 's/[^,]*,[ \[]*//' | sed 's/\]*[,)].*//' | sed 's/[^0-9\.]*//'`
+	fi
 	if [ -z "$VP" ]; then
 	    echo "Can't detect version from configure.ac"
 	    usage
@@ -230,7 +233,7 @@ update_metadata ()
 	if [ -f "$PKG_NAME.ini" ]; then
 	    sed -i -e "s,Version.*,Version = $VP$DATE," $PKG_NAME.ini
 	else
-	    sed -i -e "s,Version.*,Version: $VP$DATE," $PKG_NAME.spec
+	    sed -i -e "s,\(Version: *\)[^)]*,\1$VP$DATE," $PKG_NAME.spec
 	fi
 }
 run "pushd /tmp/$OSC_REPO/$PKG_NAME"
