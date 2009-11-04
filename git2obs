@@ -39,14 +39,6 @@ else
 	COL=73
 fi
 
-
-if [ "$COLS" ] && [ "$COLS" -gt 6 ]; then
-	COL=`expr $COLS - 7`
-else
-	COLS=80
-	COL=73
-fi
-
 log_message ()
 {
 	echo -n " * $1"
